@@ -1,8 +1,12 @@
 package authz
 
 import (
-	"github.com/casbin/casbin/v2"
+	"fmt"
 	"net/http"
+	"strings"
+
+	"github.com/casbin/casbin/v2"
+	"github.com/form3tech-oss/jwt-go"
 )
 
 type CasbinAuthorizer struct {
@@ -37,13 +41,26 @@ func (c *CasbinAuthorizer) Middleware(next http.Handler) http.Handler {
 // GetUserName gets the user name from the request.
 // Currently, only HTTP basic authentication is supported
 func (c *CasbinAuthorizer) GetUserName(r *http.Request) string {
-	username, _, _ := r.BasicAuth()
-	return username
+	tokenString := r.Header.Get("Authorization")
+	splitToken := strings.Split(tokenString, "Bearer ")
+	claims := jwt.MapClaims{}
+	_, _ = jwt.ParseWithClaims(splitToken[1], claims, func(token *jwt.Token) (interface{}, error) {
+		return []byte("stringtodescriptjwt"), nil
+	})
+	role := ""
+	//fmt.Println("Token:%v", splitToken)20
+	for k, v := range claims {
+		if k == "Role" {
+			role = fmt.Sprintf("%v", v)
+		}
+	}
+	return role
 }
 
 // CheckPermission checks the user/method/path combination from the request.
 // Returns true (permission granted) or false (permission forbidden)
 func (c *CasbinAuthorizer) CheckPermission(r *http.Request) (bool, error) {
+
 	user := c.GetUserName(r)
 	method := r.Method
 	path := r.URL.Path
